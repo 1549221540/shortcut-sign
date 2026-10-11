@@ -1,41 +1,41 @@
 name: Sign Shortcut
 on:
   workflow_dispatch:
-    inputs:
-      filename:
-        description: '文件名'
-        required: true
-        default: 'iCost自动记账.shortcut'
 
 jobs:
   sign:
     runs-on: macos-14
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Prepare ASCII-named binary plist
+      - name: Prepare and sign (all output logged)
+        if: always()
         run: |
+          exec > >(tee -a sign-log.txt) 2>&1
           set -x
+          pwd
           ls -la
-          cp "${{ github.event.inputs.filename }}" input.shortcut
-          plutil -convert binary1 -o input.shortcut input.shortcut
+          SRC=$(ls *.shortcut 2>/dev/null | head -1)
+          echo "SRC=$SRC"
+          if [ -z "$SRC" ]; then echo "NO_SHORTCUT_FILE_IN_REPO"; exit 0; fi
+          cp "$SRC" input.shortcut
+          plutil -convert binary1 -o input.shortcut input.shortcut && echo PLUTIL_OK
           file input.shortcut
+          shortcuts sign --mode anyone --input input.shortcut --output signed.shortcut && echo SIGN_OK || echo SIGN_FAIL
+          ls -la
 
-      - name: Sign shortcut
-        id: sign
-        continue-on-error: true
-        run: |
-          set -x
-          shortcuts sign --mode anyone --input input.shortcut --output signed.shortcut 2>&1 | tee "$GITHUB_WORKSPACE/sign-log.txt"
-          ls -la signed.shortcut 2>&1 | tee -a "$GITHUB_WORKSPACE/sign-log.txt"
-
-      - name: Upload result
+      - name: Upload log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sign-result
-          path: |
-            signed.shortcut
-            sign-log.txt
+          name: sign-log
+          path: sign-log.txt
           if-no-files-found: warn
+
+      - name: Upload signed file
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-shortcut
+          path: signed.shortcut
+          if-no-files-found: ignore
