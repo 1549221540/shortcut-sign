@@ -1,8 +1,0 @@
-- name: Convert to binary plist
-  run: |
-    IN="${{ github.event.inputs.filename }}"
-    plutil -convert binary1 -o "$IN" "$IN"
-
-- name: Sign
-  run: |
-    shortcuts sign --mode anyone --input "$IN" --output "signed.shortcut"
